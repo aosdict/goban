@@ -4,7 +4,7 @@ import collections # for deque
 import sys
 
 class InvalidSpaceError(Exception):
-   def __init__(self, message, errors):
+   def __init__(self, message, errors=None):
       super(InvalidSpaceError, self).__init__(message)
       self.errors = errors
 
@@ -89,6 +89,7 @@ class Goban:
       # 1. boolean denoting whether the main group doesn't need to be checked anymore
       # 2. a set of coordinates that gets captured, or None
       def check_adjacency(row, col):
+         # print 'Checking adjacency', row, col, self.board[row][col], pnum
          if self.board[row][col] == 0:
             return (True, None)
          elif self.board[row][col] != pnum:
@@ -131,7 +132,7 @@ class Goban:
          self.board[row][col] = 0
          return (False, opposing_captured_groups)
       else:
-         if count_liberties(row, col)[0] == 0:
+         if self.count_liberties(row, col)[0] == 0:
             self.board[row][col] = 0
             return (True, [])
          else:
@@ -176,7 +177,7 @@ class Goban:
       # test if this causes a repeat of a previous board state
       digest, is_repeat = self.putative_board_hash(pnum, row, col)
       if is_repeat:
-         raise InvalidSpaceError("This move causes a repeat of a previous board state")
+         raise InvalidSpaceError("KO: This move causes a repeat of a previous board state")
 
       else:
          # place the piece
@@ -202,19 +203,20 @@ class Goban:
          else:
             pnum = 1
 
-
+'''
 gb = Goban(9)
-gb.multiplay([
-   (2,2),
-   (2,3),
-   (2,6),
-   (1,2),
-   (2,7),
-   (2,1),
-   (2,8),
-   (3,2),
-   (0,1),
-   (0,0),
-   (1,0),
-   ])
+# gb.play(1, 0, 2)
+gb.play(1,1,1)
+gb.play(1,2,0)
+gb.play(1,3,1)
+gb.play(1,4,2)
+gb.play(1,3,3)
+gb.play(1,2,4)
+gb.play(1,1,3)
+gb.play(2,1,2)
+gb.play(2,2,1)
+gb.play(2,3,2)
+gb.play(2,2,3)
+gb.play(1,2,2)
 gb.dbg_print()
+'''
