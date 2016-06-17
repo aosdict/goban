@@ -1,10 +1,11 @@
 # goban module
 import hashlib
 import collections # for deque
+import sys
 
-class PlacementError(Exception):
+class InvalidSpaceError(Exception):
    def __init__(self, message, errors):
-      super(PlacementError, self).__init__(message)
+      super(InvalidSpaceError, self).__init__(message)
       self.errors = errors
 
 class Goban:
@@ -12,6 +13,7 @@ class Goban:
    board = None
    size = 0
    history = collections.deque()
+   captures = { 1: 0, 2: 0 }
 
    def __init__(self, dimension):
       self.size = dimension
@@ -21,15 +23,121 @@ class Goban:
       for row in self.board:
          for space in row:
             if space == 0:
-               print '+',
+               sys.stdout.write(u'\u00b7 ')
             elif space == 1:
-               print 'O',
+               sys.stdout.write(u'\u25cf ')
             elif space == 2:
-               print 'X',
+               sys.stdout.write(u'\u25cb ')
+            # sys.stdout.write(u'\u2500')
          print
 
+   # Given a board position, iterate over the group of stones it is part of 
+   # and return the number of liberties the group has.
+   # Also return the set of coordinates representing the group.
+   # assumes this is a valid board location
+   def count_liberties(self, init_row, init_col):
+      player = self.board[init_row][init_col]
+      if player == 0:
+         raise InvalidSpaceError("This is an open space (not part of a group)")
+
+      liberties = 0
+      s_open = set()
+      # maintain 2 closed sets so that it's easy to return only the set representing this contiguous group
+      s_closed_same = set()
+      s_closed_different = set()
+      s_open.add((init_row,init_col))
+
+      while len(s_open) > 0:
+         row, col = s_open.pop()
+
+         if self.board[row][col] == 0:
+            # is a liberty, add to closed set but don't check neighbors
+            s_closed_different.add((row, col))
+            liberties += 1
+
+         elif self.board[row][col] == player:
+            s_closed_same.add((row,col))
+            # add neighbors to open set if they are valid spaces
+            if row > 0 and (row-1, col) not in s_closed_same and (row-1, col) not in s_closed_different:
+               s_open.add((row-1, col))
+            if row < self.size-1 and (row+1, col) not in s_closed_same and (row+1, col) not in s_closed_different:
+               s_open.add((row+1, col))
+            if col > 0 and (row, col-1) not in s_closed_same and (row, col-1) not in s_closed_different:
+               s_open.add((row, col-1))
+            if col < self.size-1 and (row, col+1) not in s_closed_same and (row, col+1) not in s_closed_different:
+               s_open.add((row, col+1))
+
+         else:
+            # other player's stones don't have anything important happening to them
+            s_closed_different.add((row, col))
+
+      return (liberties, s_closed_same)
+
+   # for optimization, this will return a tuple containing the following:
+   # 1. truth value denoting whether it is illegal
+   # 2. list of sets of coordinates (opposing groups that would get captured by this move)
    def is_illegal(self, pnum, row, col):
-      # TODO
+      # it is illegal if:
+      # 1. no opposing groups are captured by this move AND
+      # 2. making this move would cause the player's own group to be captured
+
+      # simulate adding the stone to the board
+      # (assumes this is a valid location and there is nothing there already)
+      self.board[row][col] = pnum
+
+      # return a 2-tuple of:
+      # 1. boolean denoting whether the main group doesn't need to be checked anymore
+      # 2. a set of coordinates that gets captured, or None
+      def check_adjacency(row, col):
+         if self.board[row][col] == 0:
+            return (True, None)
+         elif self.board[row][col] != pnum:
+            libs, group = self.count_liberties(row, col)
+            if libs == 0:
+               opposing_captured_groups.append(group)
+               return (True, group)
+         return (False, None)
+
+      opposing_captured_groups=[]
+      dont_need_to_check = False
+      # check 4 adjacent spaces
+      # if any are open, set dont_need_to_check so this group won't be checked
+      # if any are opposing, see if they now have no liberties; if they do,
+      #   add them to opposing_captured_groups and set dont_need_to_check
+      if row > 0:
+         flag, group = check_adjacency(row-1, col)
+         dont_need_to_check = dont_need_to_check or flag
+         if not group is None:
+            opposing_captured_groups.append(group)
+      if row < self.size-1:
+         flag, group = check_adjacency(row+1, col)
+         dont_need_to_check = dont_need_to_check or flag
+         if not group is None:
+            opposing_captured_groups.append(group)
+      if col > 0:
+         flag, group = check_adjacency(row, col-1)
+         dont_need_to_check = dont_need_to_check or flag
+         if not group is None:
+            opposing_captured_groups.append(group)
+      if col < self.size-1:
+         flag, group = check_adjacency(row, col+1)
+         dont_need_to_check = dont_need_to_check or flag
+         if not group is None:
+            opposing_captured_groups.append(group)
+
+      # no direct liberties or captured opposing groups
+      if dont_need_to_check:
+         # there are liberties to this space, or groups have been captured
+         self.board[row][col] = 0
+         return (False, opposing_captured_groups)
+      else:
+         if count_liberties(row, col)[0] == 0:
+            self.board[row][col] = 0
+            return (True, [])
+         else:
+            self.board[row][col] = 0
+            return (False, [])
+
       return False
 
    def putative_board_hash(self, pnum, row, col):
@@ -52,36 +160,61 @@ class Goban:
    def play(self, pnum, row, col):
       # test if row or col are invalid
       if row < 0 or row >= self.size:
-         raise PlacementError("The row " + row + " is off the board")
+         raise InvalidSpaceError("The row " + row + " is off the board")
       elif col < 0 or col >= self.size:
-         raise PlacementError("The column " + col + " is off the board")
+         raise InvalidSpaceError("The column " + col + " is off the board")
 
       # test if there is already something there
       elif self.board[row][col] != 0:
-         raise PlacementError("There is already a stone on this space")
+         raise InvalidSpaceError("There is already a stone on this space")
 
       # test if this is an illegal move
-      elif self.is_illegal(pnum, row, col):
-         raise PlacementError("This move is illegal")
+      illegal, captured_groups = self.is_illegal(pnum, row, col)
+      if illegal:
+         raise InvalidSpaceError("This move is illegal")
 
       # test if this causes a repeat of a previous board state
       digest, is_repeat = self.putative_board_hash(pnum, row, col)
       if is_repeat:
-         raise PlacementError("This move causes a repeat of a previous board state")
+         raise InvalidSpaceError("This move causes a repeat of a previous board state")
 
       else:
          # place the piece
          self.board[row][col] = pnum
 
          # capture any adjacent groups with no liberties
-         # TODO
+         for group in captured_groups:
+            for coord in group:
+               self.board[coord[0]][coord[1]] = 0
+               self.captures[pnum] = self.captures[pnum] + 1
 
          # save the board state
          # a possible optimization is to limit the history queue's max size
          self.history.appendleft(digest)
 
+   # Play multiple turns alternating colors. Takes a list of coordinate tuples.
+   def multiplay(self, coordlist):
+      pnum = 1
+      for coord in coordlist:
+         self.play(pnum, coord[0], coord[1])
+         if pnum == 1:
+            pnum = 2
+         else:
+            pnum = 1
+
 
 gb = Goban(9)
-gb.dbg_print()
-gb.play(1, 3, 3)
+gb.multiplay([
+   (2,2),
+   (2,3),
+   (2,6),
+   (1,2),
+   (2,7),
+   (2,1),
+   (2,8),
+   (3,2),
+   (0,1),
+   (0,0),
+   (1,0),
+   ])
 gb.dbg_print()
