@@ -3,9 +3,15 @@ import hashlib
 import collections # for deque
 import sys
 
-class InvalidSpaceError(Exception):
+# superclass for all exceptions thrown by this module
+class GobanError(Exception):
    def __init__(self, message, errors=None):
-      super(InvalidSpaceError, self).__init__(message)
+      super(GobanError, self).__init__(message)
+      self.errors = errors
+
+class InvalidSpaceError(GobanError):
+   def __init__(self, message, errors=None):
+      super(InvalidSpaceError, self).__init__(message, errors)
       self.errors = errors
 
 class Goban:
