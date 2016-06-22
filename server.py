@@ -30,9 +30,11 @@ s.listen(2)
 # goban setup
 gb = goban.Goban(9)
 current_player = 1
+prev_pass = False
 
 def playerthread(conn, player_number):
    global current_player
+   global prev_pass
    conn.send('Connected. You are player number ' + str(player_number) + '\n');
 
    data = conn.recv(1024)
@@ -59,13 +61,14 @@ def playerthread(conn, player_number):
                conn.sendall('ERROR: Goban error: '+str(e)+'\n')
             except ValueError:
                conn.sendall('ERROR: row/column argument for PLAY was not an int\n')
-               
+
       elif cmd == 'PASS':
          current_player = 2 if (player_number == 1) else 1
+         
          conn.sendall('SUCCESS: You passed this turn')
       else:
          conn.sendall('ERROR: Unrecognized command '+cmd+'\n')
-      
+
       # receive new data
       data = conn.recv(1024)
 
