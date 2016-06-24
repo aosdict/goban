@@ -8,14 +8,18 @@ import locale
 locale.setlocale(locale.LC_ALL, '')
 
 stdscr = curses.initscr()
+curses.start_color()
 curses.noecho() # don't display letters when input is received
 curses.cbreak() # don't require Enter to react to keys
 stdscr.keypad(1)
 gobansize = 9
 gb = goban.Goban(gobansize)
 gb.play(2, 2, 2)
-horiz_spacing = 1
-vert_spacing = 0
+gb.play(1, 4, 4)
+gb.play(1, 0, 0)
+gb.play(2, 0, 1)
+horiz_spacing = 3
+vert_spacing = 1
 # Board drawn with 3 spaces between points horizontally and 1 between points
 # vertically, with the same margins on either side.
 # Total width = (gobansize-1) * (1 + *_spacing) + 1 (extra column) + 2 (edges) + (*_spacing * 2) (margins)
@@ -46,11 +50,12 @@ def maindraw():
          on_left = (x == 0)
          on_right = (x == len(board[y]) - 1)
 
-         stone = None
-         if board[y][x] == 1:
-            stone = u'\u25cf'
-         elif board[y][x] == 2:
-            stone = u'\u25cb'
+
+         # stone = None
+         # if board[y][x] == 1:
+         #    stone = u'\u25cf'
+         # elif board[y][x] == 2:
+         #    stone = u'\u25cb'
          
          if on_top:
             if on_left:
@@ -74,10 +79,20 @@ def maindraw():
             else:
                draw = curses.ACS_PLUS
 
-         if stone is not None:
-            gobanwin.addstr(stone.encode('utf-8'))
-         else:
-            gobanwin.addch(draw)
+
+         a = curses.A_NORMAL
+         if board[y][x] == 1:
+            draw = ' '
+            a = curses.A_REVERSE | curses.COLOR_RED
+         elif board[y][x] == 2:
+            draw = ' '
+            a = curses.A_REVERSE
+
+         # if stone is not None:
+         #    gobanwin.addstr(stone.encode('utf-8'))
+         # else:
+            # gobanwin.addch(draw)
+         gobanwin.addch(draw, a)
 
          if not on_right:
             for i in range(horiz_spacing):
