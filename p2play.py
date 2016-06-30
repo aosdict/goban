@@ -9,6 +9,12 @@ locale.setlocale(locale.LC_ALL, '')
 
 stdscr = curses.initscr()
 curses.start_color()
+curses.use_default_colors()
+curses.init_pair(1, curses.COLOR_CYAN, -1)
+curses.init_pair(2, curses.COLOR_GREEN, -1)
+curses.init_pair(3, curses.COLOR_BLACK, -1)
+curses.init_pair(4, curses.COLOR_RED, -1)
+default_curses_settings = curses.color_pair(3)
 curses.noecho() # don't display letters when input is received
 curses.cbreak() # don't require Enter to react to keys
 stdscr.keypad(1)
@@ -18,6 +24,7 @@ gb.play(2, 2, 2)
 gb.play(1, 4, 4)
 gb.play(1, 0, 0)
 gb.play(2, 0, 1)
+gb.play(1, 1, 0)
 horiz_spacing = 3
 vert_spacing = 1
 # Board drawn with 3 spaces between points horizontally and 1 between points
@@ -26,7 +33,7 @@ vert_spacing = 1
 tot_draw_w = (gobansize-1) * (horiz_spacing + 1) + (horiz_spacing * 2) + 3
 tot_draw_h = (gobansize-1) * (vert_spacing + 1) + (vert_spacing * 2) + 3
 gobanwin = curses.newwin(tot_draw_h, tot_draw_w, 0, 0)
-
+statuswin = curses.newwin(3, tot_draw_w, tot_draw_h, 0)
 
 def cleanup():
    stdscr.keypad(0)
@@ -42,7 +49,7 @@ def maindraw():
    board = gb.board
    for y in range(len(board)):
       gobanwin.move((y * (vert_spacing+1)) + 1 + vert_spacing, 1 + horiz_spacing)
-      
+
       on_top = (y == 0)
       on_bot = (y == len(board) - 1)
 
@@ -56,7 +63,7 @@ def maindraw():
          #    stone = u'\u25cf'
          # elif board[y][x] == 2:
          #    stone = u'\u25cb'
-         
+
          if on_top:
             if on_left:
                draw = curses.ACS_ULCORNER
@@ -80,13 +87,13 @@ def maindraw():
                draw = curses.ACS_PLUS
 
 
-         a = curses.A_NORMAL
+         a = default_curses_settings
          if board[y][x] == 1:
             draw = ' '
-            a = curses.A_REVERSE | curses.COLOR_RED
+            a = curses.color_pair(1) | curses.A_REVERSE
          elif board[y][x] == 2:
             draw = ' '
-            a = curses.A_REVERSE
+            a = curses.color_pair(2) | curses.A_REVERSE
 
          # if stone is not None:
          #    gobanwin.addstr(stone.encode('utf-8'))
@@ -96,25 +103,68 @@ def maindraw():
 
          if not on_right:
             for i in range(horiz_spacing):
-               gobanwin.addch(curses.ACS_HLINE)
+               gobanwin.addch(curses.ACS_HLINE, default_curses_settings)
 
       # draw lines that don't include horizontals
       if not on_bot:
          for i in range(vert_spacing):
             gobanwin.move((y * (vert_spacing+1)) + 3 + i, 1 + horiz_spacing)
             for x in range(len(board[y])):
-               gobanwin.addch(curses.ACS_VLINE)
+               gobanwin.addch(curses.ACS_VLINE, default_curses_settings)
                cy, cx = gobanwin.getyx()
                gobanwin.move(cy, cx + horiz_spacing)
 
 
    stdscr.refresh()
    gobanwin.refresh()
+   statuswin.refresh()
+
+def cursorx_to_real(cursor_coord):
+   return (1 + horiz_spacing) * (cursor_coord + 1)
+
+def cursory_to_real(cursor_coord):
+   return (1 + vert_spacing) * (cursor_coord + 1)
 
 try:
    maindraw()
-   stdscr.move(4, 4)
-   stdscr.getch()
+   cursorx = 0
+   cursory = 0
+   # Movement loop
+   while True:
+      stdscr.move(cursory_to_real(cursory), cursorx_to_real(cursorx))
+      inpt = stdscr.getch()
+      if inpt == ord('p'):
+         # Pass (in goban)
+         pass
+
+      elif inpt == ord('\n'):
+         try:
+            gb.play(1, cursory, cursorx)
+         except goban.GobanError as e:
+            errmsg = 'Error: ' + e.message
+            statuswin.addstr(0, 0, errmsg, curses.color_pair(4))
+
+      elif (inpt == ord('l') or inpt == curses.KEY_RIGHT):
+         if cursorx < gobansize - 1:
+            cursorx += 1
+
+      elif (inpt == ord('h') or inpt == curses.KEY_LEFT):
+         if cursorx > 0:
+            cursorx -= 1
+
+      elif (inpt == ord('j') or inpt == curses.KEY_DOWN):
+         if cursory < gobansize - 1:
+            cursory += 1
+
+      elif (inpt == ord('k') or inpt == curses.KEY_UP):
+         if cursory > 0:
+            cursory -= 1
+
+      else:
+         break
+
+      maindraw()
+
 except Exception as e:
    cleanup()
    traceback.print_exc()
