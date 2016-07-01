@@ -1,0 +1,90 @@
+Server accepts connection to first player, then sends several QUERY messages to the client. 
+QUERY must always be answered with RESPONSE. The client must answer each QUERY with one RESPONSE.
+If the answer could not be processed properly, the server will send back an ERROR followed by the same QUERY.
+After these QUERY messages are all answered, the server waits for the second player to connect.
+When the second player connects, the server will send both players a TERMS message.
+Each player's client will answer with a TERMSCONFIRM agreeing or not agreeing to the terms.
+If the terms are not agreeable, the server closes connections and exits. # TODO: Have second player propose terms here instead
+If the terms are agreeable, the server sends a TERMSOK message to both players.
+If a handicap is present, the server will listen for that number of PLAY responses from the player with the handicap. These responses will be echoed to the other player.
+Sending a PASS stops the handicap placement, even if the handicap was not completely used up.
+Once any handicapping is done, the server will send a START message to both players. The black player is expected to play first.
+
+Normal Play
+-----------------
+The server will listen for a PLAY message containing two arguments representing the coordinates of the placed stone.
+If the stone cannot be placed, the server responds with an ERROR message.
+If it can, the server sends a SUCCESS message to the player who just played.
+Then, the server sends an OPPONENTPLAY message to the other player.
+The player can also send a PASS message, in which case the server will send an OPPONENTPASS to the other player.
+Once the OPPONENTPLAY or OPPONENTPASS is sent to the other player, the server listens for a PLAY or PASS from them, and so forth.
+
+End of Game
+-----------------
+The player can send a RESIGN message instead of a PLAY or PASS.
+The server will then send a GAMEOVER message to both clients.
+If both players PASS in sequence, the server will consult its internal goban to determine the winner, and then
+send a GAMEOVER message to both clients.
+The server will always close connections after sending a GAMEOVER.
+
+Types of Messages
+-----------------
+QUERY: 1 parameter, server -> client
+   The server is asking the client for information.
+   1. Denotes what the server is asking for. Can be 'boardsize', 'color', 'handicap', 'komi', '.
+
+RESPONSE: 2 parameters, client -> server
+   The client is returning information asked for in a QUERY.
+   1. Same value name that the corresponding QUERY asked for.
+   2. The actual value.
+
+ERROR: 1 "parameter", server -> client
+   The server was not able to process information from the client correctly. The "parameter" is a string which may contain spaces.
+   1. Message informing the client what went wrong.
+   
+TERMS: 4 parameters, server -> client
+   The server is giving the client the terms of the game before it begins and asking for confirmation.
+   1. (Integer) Board size
+   2. (Integer) Color that the client would play as. 1 for black, 2 for white.
+   3. (Integer) Handicap given to the black player.
+   4. (Float) Amount of komi given to white. 
+
+TERMSCONFIRM: 1 parameter, client -> server
+   The client is telling the server whether it agrees with the terms.
+   1. 'Yes' or 'No'
+
+TERMSOK: 0 parameters, server -> client
+   The server is informing the client that the other player found the terms acceptable.
+
+START: 0 parameters, server -> client
+   The server is informing the client that the game has begun. If the client is playing as white, however, PLAY messages sent before an OPPONENTPLAY is received from black will not work.
+
+PLAY: 2 parameters, client -> server
+   The client is informing the server of a play they desire to make.
+   1. Y coordinate on the board
+   2. X coordinate on the board
+
+OPPONENTPLAY: 2 parameters, server -> client
+   The server is informing the client of a play the opponent made so the client can display it. The client may now send another PLAY or PASS.
+   1. Y coordinate
+   2. X coordinate
+
+PASS: 0 parameters, client -> server
+   The client surrenders its turn. If sent while in the middle of playing handicap stones, aborts the handicap phase and starts the game.
+
+OPPONENTPASS: 0 parameters, server -> client
+   The server is informing the client that the opponent has surrendered their turn. The client may now send another PLAY or PASS.
+
+RESIGN: 0 parameters, client -> server
+   The client forfeits the game.
+
+GAMEOVER: 2 or 6 parameters, server -> client
+   The game is over.
+   1. (Boolean) Whether this client won.
+   2. (Boolean) Whether the win was due to a resignation. If true, the remaining parameters do not have to appear.
+   3. (Integer, optional) Number of stones captured by this player.
+   4. (Integer, optional) Number of stones captured by the opponent.
+   5. (Integer, optional) Territory possessed by this player.
+   6. (Integer, optional) Territory possessed by the other player.
+   7. (Float, optional) Total score of this player, counting komi.
+   8. (Float, optional) Total score of the other player, counting komi.
