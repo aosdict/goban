@@ -5,20 +5,67 @@ import curses
 import traceback
 import locale
 
-locale.setlocale(locale.LC_ALL, '')
 
-stdscr = curses.initscr()
-curses.start_color()
-curses.use_default_colors()
-curses.init_pair(1, curses.COLOR_CYAN, -1)
-curses.init_pair(2, curses.COLOR_GREEN, -1)
-curses.init_pair(3, curses.COLOR_BLACK, -1)
-curses.init_pair(4, curses.COLOR_RED, -1)
-default_curses_settings = curses.color_pair(3)
-curses.noecho() # don't display letters when input is received
-curses.cbreak() # don't require Enter to react to keys
-stdscr.keypad(1)
-gobansize = 9
+def init_curses():
+   stdscr = curses.initscr()
+   curses.start_color()
+   curses.use_default_colors()
+   curses.init_pair(1, curses.COLOR_CYAN, -1)
+   curses.init_pair(2, curses.COLOR_GREEN, -1)
+   curses.init_pair(3, curses.COLOR_WHITE, -1)
+   curses.init_pair(4, curses.COLOR_RED, -1)
+   default_curses_settings = curses.color_pair(3)
+   curses.curs_set(2)
+   curses.noecho() # don't display letters when input is received
+   curses.cbreak() # don't require Enter to react to keys
+   stdscr.keypad(1)
+
+def init():
+   locale.setlocale(locale.LC_ALL, '')
+   mode = raw_input("Start in server or client mode? ")
+   if mode == 'SERVER':
+      # Server gets to control the parameters of the game.
+      gobansize_str = raw_input("Enter size of goban: ")
+      try:
+         gobansize = int(gobansize_str)
+      except ValueError:
+         print "goban size must be a number"
+         sys.exit(1)
+
+      if gobansize < 3:
+         print "goban smaller than 3 does not make much sense"
+         sys.exit(1)
+
+      # TODO: this should accept empty strings
+      p1handicap_str = raw_input("Enter your handicap: ")
+      try:
+         p1handicap = int(p1handicap_str)
+      except ValueError:
+         print "your handicap must be a number"
+         sys.exit(1)
+
+      p2handicap = 0
+      if p1handicap == 0:
+         # TODO: this should accept empty strings
+         p2handicap_str = raw_input("Enter opponent's handicap: ")
+         try: 
+            p2handicap = int(p2handicap_str)
+         except ValueError:
+            print "opponent's handicap must be a number"
+            sys.exit(1)
+
+         if p2handicap == 0:
+            choice = raw_input("Play as (b)lack, (w)hite, or (r)andom? ")
+
+   elif mode == 'CLIENT':
+      # Client only gets to confirm the parameters.
+      pass
+
+   else:
+      print "Mode must be SERVER or CLIENT"
+      sys.exit(1)
+
+gobansize = 19
 gb = goban.Goban(gobansize)
 gb.play(2, 2, 2)
 gb.play(1, 4, 4)
@@ -43,8 +90,6 @@ def cleanup():
 
 def maindraw():
    gobanwin.move(0,0)
-   gobanwin.box()
-   # gobanwin.move(vert_spacing + 1, horiz_spacing + 1)
 
    board = gb.board
    for y in range(len(board)):
@@ -113,7 +158,8 @@ def maindraw():
                gobanwin.addch(curses.ACS_VLINE, default_curses_settings)
                cy, cx = gobanwin.getyx()
                gobanwin.move(cy, cx + horiz_spacing)
-
+   
+   gobanwin.box()
 
    stdscr.refresh()
    gobanwin.refresh()
