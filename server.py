@@ -78,11 +78,153 @@ def playerthread(conn, player_number):
 
 p1conn, p1addr = s.accept()
 print 'Accepted connection from', p1addr
-thread.start_new_thread(playerthread, (p1conn, 1))
 
+def parse_response(connection):
+   data = connection.recv(1024)
+   if not data:
+      raise EOFError("Connection closed")
+
+   rlist = data.split()
+   if len(rlist) < 1:
+      raise ValueError("No command")
+
+   return rlist
+
+# the first connector gets to set the terms of the game
+boardsize = 0
+while boardsize < 3:
+   p1conn.send("QUERY boardsize\n")
+   try:
+      response = parse_response(p1conn)
+      assert response[0] == 'RESPONSE'
+      boardsize = int(response[1])
+   except EOFError:
+      print "Connection closed before board size could be set"
+      sys.exit(1)
+   except AssertionError:
+      print "Expected RESPONSE, got", response[0]
+      p1conn.send("ERROR QUERY command must be answered with RESPONSE\n")
+      continue
+   except ValueError as e:
+      print "ValueError:", e
+      p1conn.send("ERROR " + str(e) + ' \n')
+      continue
+   except IndexError as e:
+      print 'Inadequate board size response parameters'
+      p1conn.send('ERROR Must provide an integer board size\n')
+
+   if boardsize < 3:
+      print "Board", boardsize, "too small"
+      p1conn.send("ERROR Boardsize " + boardsize + " too small\n")
+
+print 'Board size successfully set to', boardsize
+
+color = 0
+while color != 1 and color != 2:
+   p1conn.send("QUERY color\n")
+   try:
+      response = parse_response(p1conn)
+      assert response[0] == 'RESPONSE'
+      color_str = response[1]
+   except EOFError:
+      print "Connection closed before color could be set"
+      sys.exit(1)
+   except AssertionError:
+      print "Expected RESPONSE, got", response[0]
+      p1conn.send("ERROR QUERY command must be answered with RESPONSE\n")
+      continue
+   except ValueError as e:
+      print "ValueError:", e
+      p1conn.send("ERROR " + str(e) + ' \n')
+      continue
+   except IndexError as e:
+      print 'Inadequate color response parameters'
+      p1conn.send("ERROR Must provide a color string 'white' or 'black'\n")
+
+   if color_str == 'black':
+      color = 1
+   elif color_str == 'white':
+      color = 2
+   else:
+      print "Incorrect color type", color_str
+      p1conn.send("ERROR Color string " + color_str + " is not 'white' or 'black'\n")
+
+print "Player 1 color successfully set to", color_str
+
+handicap = -1
+while handicap < 0:
+   p1conn.send("QUERY handicap\n")
+   try:
+      response = parse_response(p1conn)
+      assert response[0] == 'RESPONSE'
+      handicap = int(response[1])
+   except EOFError:
+      print "Connection closed before handicap could be set"
+      sys.exit(1)
+   except AssertionError:
+      print "Expected RESPONSE, got", response[0]
+      p1conn.send("ERROR QUERY command must be answered with RESPONSE\n")
+      continue
+   except ValueError as e:
+      print "ValueError:", e
+      p1conn.send("ERROR " + str(e) + ' \n')
+      continue
+   except IndexError as e:
+      print 'Inadequate handicap response parameters'
+      p1conn.send("ERROR Must provide an integer handicap\n")
+
+   if handicap < 0:
+      print "Improper handicap", handicap
+      p1conn.send("ERROR handicap must be 0 or greater")
+
+print 'Handicap successfully set to', handicap
+
+komi = -1
+while komi < 0:
+   p1conn.send("QUERY komi\n")
+   try:
+      response = parse_response(p1conn)
+      assert response[0] == 'RESPONSE'
+      komi = float(response[1])
+   except EOFError:
+      print "Connection closed before komi could be set"
+      sys.exit(1)
+   except AssertionError:
+      print "Expected RESPONSE, got", response[0]
+      p1conn.send("ERROR QUERY command must be answered with RESPONSE\n")
+      continue
+   except ValueError as e:
+      print "ValueError:", e
+      p1conn.send("ERROR " + str(e) + ' \n')
+      continue
+   except IndexError as e:
+      print 'Inadequate komi response parameters'
+      p1conn.send("ERROR Must provide a decimal komi\n")
+
+   if komi < 0:
+      print "Improper komi", komi
+      p1conn.send("ERROR komi must be 0 or greater")
+
+print 'Komi successfully set to', komi
+
+print 'Now waiting for second player'
 p2conn, p2addr = s.accept()
 print 'Accepted connection from', p2addr
-thread.start_new_thread(playerthread, (p2conn, 2))
+
+playermap = {
+   1: color,
+   2: (2 if color == 1 else 1)
+}
+
+p1conn.send('TERMS %s %s %s %s\n' % (boardsize, playermap[1], handicap, komi))
+p2conn.send('TERMS %s %s %s %s\n' % (boardsize, playermap[2], handicap, komi))
+
+data = p1conn.recv(1024)
+sys.exit(0)
+
+#thread.start_new_thread(playerthread, (p1conn, 1))
+
+#thread.start_new_thread(playerthread, (p2conn, 2))
 
 print 'Now past creating threads'
 
