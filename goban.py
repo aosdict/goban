@@ -14,6 +14,10 @@ class InvalidSpaceError(GobanError):
       super(InvalidSpaceError, self).__init__(message, errors)
       self.errors = errors
 
+# constants
+BLACK = 1
+WHITE = 2
+
 class Goban:
    # actual board
    board = None
