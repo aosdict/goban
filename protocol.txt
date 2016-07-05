@@ -1,11 +1,12 @@
-Server accepts connection to first player, then sends several QUERY messages to the client. 
-QUERY must always be answered with RESPONSE. The client must answer each QUERY with one RESPONSE.
-If the answer could not be processed properly, the server will send back an ERROR followed by the same QUERY.
-After these QUERY messages are all answered, the server waits for the second player to connect.
+Server accepts connection to first player.
+It sends a WAITING message to the player. 
+Then it waits for a TERMS message to be sent from that player.
+If the message or parameters could not be processed properly, the server will send back an ERROR.
+If there are multiple errors, only the first error encountered will be sent back.
 When the second player connects, the server will send both players a TERMS message.
 Each player's client will answer with a TERMSCONFIRM agreeing or not agreeing to the terms.
-If the terms are not agreeable, the server closes connections and exits. # TODO: Have second player propose terms here instead
-If the terms are agreeable, the server sends a TERMSOK message to both players.
+If the terms are not agreeable, the server sends both players a TERMSDENY message, closes connections and exits. # TODO: Have second player propose terms here instead
+If the terms are agreeable, the server sends a TERMSACCEPT message to both players.
 If a handicap is present, the server will listen for that number of PLAY responses from the player with the handicap. These responses will be echoed to the other player.
 Sending a PASS stops the handicap placement, even if the handicap was not completely used up.
 Once any handicapping is done, the server will send a START message to both players. The black player is expected to play first.
@@ -29,23 +30,19 @@ The server will always close connections after sending a GAMEOVER.
 
 Types of Messages
 -----------------
-QUERY: 1 parameter, server -> client
-   The server is asking the client for information.
-   1. Denotes what the server is asking for. Can be 'boardsize', 'color', 'handicap', 'komi', '.
-
-RESPONSE: 2 parameters, client -> server
-   The client is returning information asked for in a QUERY.
-   1. Same value name that the corresponding QUERY asked for.
-   2. The actual value.
+WAITING: 0 or 1 parameters, server -> client
+   The server is waiting for a response from the client.
+   1. Type of response that is expected.
 
 ERROR: 1 "parameter", server -> client
    The server was not able to process information from the client correctly. The "parameter" is a string which may contain spaces.
    1. Message informing the client what went wrong.
    
-TERMS: 4 parameters, server -> client
-   The server is giving the client the terms of the game before it begins and asking for confirmation.
+TERMS: 4 parameters, server -> client and client -> server
+   server -> client: The server is giving the client the terms of the game before it begins and asking for confirmation.
+   client -> server: The client is proposing terms of the game to the server.
    1. (Integer) Board size
-   2. (Integer) Color that the client would play as. 1 for black, 2 for white.
+   2. (Boolean) Whether Player 1 (the first connector) plays as black.
    3. (Integer) Handicap given to the black player.
    4. (Float) Amount of komi given to white. 
 
@@ -53,8 +50,11 @@ TERMSCONFIRM: 1 parameter, client -> server
    The client is telling the server whether it agrees with the terms.
    1. 'Yes' or 'No'
 
-TERMSOK: 0 parameters, server -> client
-   The server is informing the client that the other player found the terms acceptable.
+TERMSACCEPT: 0 parameters, server -> client
+   The server is informing the client that the proposed terms were acceptable to both parties.
+
+TERMSDENY: 0 parameters, server -> client
+   The server is informing the client that the proposed terms were not acceptable to both parties.
 
 START: 0 parameters, server -> client
    The server is informing the client that the game has begun. If the client is playing as white, however, PLAY messages sent before an OPPONENTPLAY is received from black will not work.
@@ -63,6 +63,11 @@ PLAY: 2 parameters, client -> server
    The client is informing the server of a play they desire to make.
    1. Y coordinate on the board
    2. X coordinate on the board
+
+SUCCESS: 2 parameters, server -> client
+   The server is informing the client that the play they made was successful and the client can now show it.
+   1. Y coordinate
+   2. X coordinate
 
 OPPONENTPLAY: 2 parameters, server -> client
    The server is informing the client of a play the opponent made so the client can display it. The client may now send another PLAY or PASS.
@@ -88,3 +93,14 @@ GAMEOVER: 2 or 6 parameters, server -> client
    6. (Integer, optional) Territory possessed by the other player.
    7. (Float, optional) Total score of this player, counting komi.
    8. (Float, optional) Total score of the other player, counting komi.
+
+/*
+QUERY: 1 parameter, server -> client
+   The server is asking the client for information.
+   1. Denotes what the server is asking for. Can be 'boardsize', 'color', 'handicap', 'komi', '.
+
+RESPONSE: 2 parameters, client -> server
+   The client is returning information asked for in a QUERY.
+   1. Same value name that the corresponding QUERY asked for.
+   2. The actual value.
+*/
